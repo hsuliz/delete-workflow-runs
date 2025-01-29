@@ -1,11 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"hsuliz/dwr/client"
+)
 
 func main() {
-	fmt.Print("nigger")
-}
-
-func findWorlflows() {
-
+	workflows := client.ListWorkflows("hsuliz", "terraform-ansible-sample")
+	fmt.Println(workflows)
 }

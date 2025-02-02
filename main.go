@@ -1,17 +1,32 @@
 package main
 
 import (
-
-    "hsuliz/dwr/client"
+    "flag"
     "log"
-    "os"
 )
 
 func main() {
-    workflowRuns := client.ListWorkflows("hsuliz", "terraform-ansible-sample", "Destroy")
-    log.Println("Workflows founded:")
-    for _, workflow := range workflowRuns {
-        client.DeleteWorkflowRun("hsuliz", "terraform-ansible-sample", workflow.ID)
+    owner := flag.String("o", "", "")
+    repository := flag.String("r", "", "")
+    bearerToken := flag.String("bt", "", "")
+    workflowName := flag.String("wn", "", "Optional")
+    flag.Parse()
+
+    if *owner == "" || *repository == "" || *bearerToken == "" {
+        log.Println("Please provide arguments.")
+        return
     }
-    os.Exit(0)
+
+    gitHubClient := GitHub{
+        Owner:       *owner,
+        Repository:  *repository,
+        BearerToken: *bearerToken,
+    }
+
+    workflowRuns := gitHubClient.ListWorkflows(*workflowName)
+    log.Println("Found", len(workflowRuns), "workflow runs")
+    for i, workflow := range workflowRuns {
+        gitHubClient.DeleteWorkflowRun(workflow.ID)
+        log.Println("Deleted:", i+1, "/", len(workflowRuns))
+    }
 }

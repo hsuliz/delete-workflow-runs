@@ -1,4 +1,4 @@
-package client
+package main
 
 import (
 	"encoding/json"
@@ -15,18 +15,27 @@ type ActionsRuns struct {
 }
 
 type WorkflowRun struct {
-	ID   int64 `json:"id"`
-	Name string  `json:"name"`
+	ID     int64  `json:"id"`
+	Name   string `json:"name"`
 	NodeID string `json:"node_id"`
 }
 
-func ListWorkflows(owner string, repository string, workflowName string) []WorkflowRun {
+type GitHub struct {
+	Owner       string
+	Repository  string
+	BearerToken string
+}
+
+func (gitHub GitHub) ListWorkflows(workflowName string) []WorkflowRun {
 	pageSize := 1
-	body := getWorkflowRuns(owner, repository, pageSize)
+	body := gitHub.getWorkflowRuns(gitHub.Owner,
+		gitHub.Repository,
+		pageSize,
+	)
 	var result ActionsRuns
 	err := json.Unmarshal(body, &result)
 	if err != nil {
-		log.Printf("Could not unmarshal json: %s\n", err)
+		log.Println("Could not unmarshal json:", err)
 		os.Exit(1)
 	}
 	workflowRuns := result.WorkflowRuns
@@ -34,11 +43,14 @@ func ListWorkflows(owner string, repository string, workflowName string) []Workf
 	for {
 		result = ActionsRuns{}
 		pageSize++
-		body := getWorkflowRuns(owner, repository, pageSize)
+		body := gitHub.getWorkflowRuns(gitHub.Owner,
+			gitHub.Repository,
+			pageSize,
+		)
 
 		err := json.Unmarshal(body, &result)
 		if err != nil {
-			log.Printf("Could not unmarshal json: %s\n", err)
+			log.Println("Could not unmarshal json:", err)
 			os.Exit(1)
 		}
 
@@ -48,33 +60,32 @@ func ListWorkflows(owner string, repository string, workflowName string) []Workf
 
 		workflowRuns = append(workflowRuns, result.WorkflowRuns...)
 	}
-
-
-	var filteredWorkflowRuns []WorkflowRun
-	for i, workflowRun := range workflowRuns {
-		log.Println(i, workflowRun.Name, workflowRun.NodeID)
-		if (func(s string) bool {
-			log.Println(s, workflowName, workflowRun.ID, s == workflowName)
-			return s == workflowName
-		})(workflowRun.Name) {
-			filteredWorkflowRuns = append(filteredWorkflowRuns, workflowRun)
+	if workflowName != "" {
+		var filteredWorkflowRuns []WorkflowRun
+		for _, workflowRun := range workflowRuns {
+			if (func(s string) bool {
+				return s == workflowName
+			})(workflowRun.Name) {
+				filteredWorkflowRuns = append(filteredWorkflowRuns, workflowRun)
+			}
 		}
+		return filteredWorkflowRuns
 	}
 
-	return filteredWorkflowRuns
+	return workflowRuns
 }
 
-func DeleteWorkflowRun(owner string, repository string, runID int64) {
+func (gitHub GitHub) DeleteWorkflowRun(runID int64) {
 	url := fmt.Sprintf(
 		"https://api.github.com/repos/%s/%s/actions/runs/%d",
-		owner, repository, runID)
+		gitHub.Owner, gitHub.Repository, runID)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		log.Println("Error creating request:", err)
 		os.Exit(1)
 	}
 
-	pupulateRequest(req)
+	gitHub.pupulateRequest(req)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -87,7 +98,7 @@ func DeleteWorkflowRun(owner string, repository string, runID int64) {
 	}
 }
 
-func getWorkflowRuns(owner string, repository string, pageSize int) []byte {
+func (gitHub GitHub) getWorkflowRuns(owner string, repository string, pageSize int) []byte {
 	url := fmt.Sprintf(
 		"https://api.github.com/repos/%s/%s/actions/runs?page=%d",
 		owner, repository, pageSize)
@@ -98,7 +109,7 @@ func getWorkflowRuns(owner string, repository string, pageSize int) []byte {
 		os.Exit(1)
 	}
 
-	pupulateRequest(req)
+	gitHub.pupulateRequest(req)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -117,9 +128,8 @@ func getWorkflowRuns(owner string, repository string, pageSize int) []byte {
 	return body
 }
 
-func pupulateRequest(req *http.Request) {
-	gitHubToken := "$token"
+func (gitHub GitHub) pupulateRequest(req *http.Request) {
 	req.Header.Add("Accept", "application/vnd.github+json")
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", gitHubToken))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", gitHub.BearerToken))
 	req.Header.Add("X-GitHub-Api-Version", "2022-11-28")
 }

@@ -90,8 +90,7 @@ func (gitHub GitHub) DeleteWorkflowRun(runID int64) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("Error making request:", err)
-		os.Exit(1)
+		log.Fatal("Error making request:", err)
 	}
 	if resp.StatusCode != 204 {
 		log.Fatal("Error making request: ", resp.StatusCode)
@@ -105,8 +104,7 @@ func (gitHub GitHub) getWorkflowRuns(owner string, repository string, pageSize i
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Println("Error creating request:", err)
-		os.Exit(1)
+		log.Fatal("Error creating request:", err)
 	}
 
 	gitHub.pupulateRequest(req)
@@ -114,15 +112,13 @@ func (gitHub GitHub) getWorkflowRuns(owner string, repository string, pageSize i
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("Error making request:", err)
-		os.Exit(1)
+		log.Fatal("Error making request:", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("Error reading body:", err)
-		os.Exit(1)
+		log.Fatal("Error reading body:", err)
 	}
 
 	return body
